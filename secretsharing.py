@@ -8,16 +8,24 @@ sys.setrecursionlimit(1000000)
 randgen = SystemRandom()
 
 
+#Using mersenne primes as modulus for the finite field
+#in which the polynomial lives. This allows for a small
+#representation of the modulus. The only point of this is
+#to make it easier for human to type in the modulus
+#for secret reconstruction.
+mersenne_exponents = [107, 127, 521, 607, 1279, 2203, 2281]
 
-mersenne_exponents = [127, 521, 607, 1279, 2203]
 
-
-
+"""
+secret - the secret that is supposed to be shared
+n_needed - how many shares shall be needed to reconstruct the secret
+k_total - how many shares shall exist in total
+p - the modulus of the finite field"""
 def split_secret(secret, n_needed, k_total, p):
 	coefficients = []
+	#the first coefficient is the secret		
 	coefficients.append(secret)	
 	for i in range(1, n_needed):
-		#the first coefficient IS the secret		
 		coefficients.append(randgen.randrange(p-1))
 	points = gen_points(k_total, coefficients)
 	return points
@@ -27,26 +35,29 @@ def split_secret(secret, n_needed, k_total, p):
 def gen_points(k_total, coefficients):
 	points = []
 	if k_total < len(coefficients):
-		exeptionText = ("Wrong k ("
+		exceptionText = ("Wrong k ("
 			+ str(k_total)
 			+ ") value or wrong number of coefficients ("
 			+ str(len(coefficients))
-			+ "): You need at least as many points as there are coefficients (i.e. degree + 1) in your polynomial in order to be able to reconstruct the secret")
-		raise Exception(exeptionText)
+			+ "): You need at least as many points as there"
+			+ " are coefficients (i.e. degree + 1) in your "
+			+ "polynomial in order to be able to reconstruct the secret")
+		raise Exception(exceptionText)
 	for i in range(1, k_total+1):
 		points.append([i, polynomials_value_at(coefficients, i, p)])
 	return points
 
 
-"""returns the y-value of the polynomial determined by the given coefficients at the given x-value"""
+"""returns the y-value of the polynomial determined by the given
+coefficients at the given x-value"""
 def polynomials_value_at(coefficients, x_value, p):
 	y = 0
 	for i in range(len(coefficients)):
 			y += coefficients[i]*x_value**(i) % p
 	return y
 
-def reconstruct_secret(points, p):
-	secret = 0
+def lagrange_interpolation(points, p):
+	result = 0
 	for i in range(len(points)):
 		
 		prod = 1
@@ -56,38 +67,41 @@ def reconstruct_secret(points, p):
 				prod = (prod * (0-points[j][0]) 
 					* inverse(points[i][0]-points[j][0], p)) % p
 			
-		secret = (secret + points[i][1] * prod) % p
+		result = (result + points[i][1] * prod) % p
+	return result
 
+def reconstruct_secret(points, p):
+	secret = lagrange_interpolation(points, p)
 	if (secret >= p):
 		raise Exception("secret is bigger than the modulus")
 	return secret
 
 # return (g, x, y) a*x + b*y = gcd(x, y)
-def egcd(a, b):
+def extended_euclid(a, b):
     if a == 0:
         return (b, 0, 1)
     else:
-        g, x, y = egcd(b % a, a)
+        g, x, y = extended_euclid(b % a, a)
         return (g, y - (b // a) * x, x)
 
-# x = mulinv(b) mod n, (x * b) % n == 1
+# x = mulinv(b) mod n i.e. (x * b) % n == 1
 def mulinv(b, n):
-    g, x, _ = egcd(b, n)
+    g, x, _ = extended_euclid(b, n)
     if g == 1:
         return x % n	
 
 def inverse(element, p):
 	if (element < 0):
 		element += p
-		#raise Exception("Asked to calculate the inverse of " + str(element) + " which is a negative number. But we don't use negative numbers in our field arithmetic. Something in your code is wrong")
 	if (element == 0):
 		raise Exception("Asked to calculate the inverse of 0...")
 	return mulinv(element, p)
 
-"""return the numerical representation of a string in hex"""
+"""return the numerical representation of a text string in hex"""
 def number_representation(string):
 	return int(string.encode("hex"),16)
 
+"""returns the text that is represented by number_representation in utf-8"""
 def utf8_string(number_representation):
 	hexrepr = str(hex(number_representation))
 	hexrepr = hexrepr[2:]
@@ -119,10 +133,9 @@ def get_all_subsets_of_size_n(n, main_set):
 
 
 """Splits the secrect and tests whether the secret can be reconstructed from any
-set of minimum needed shares. This is an unusual thing to do for a function. Normally
-you would expect a programme to work correctly and be well tested. However in this case
-I want to provide an additional mechanism to make sure your secret isn't lost due to
-bugs or hardware failure during the construction of the shares."""
+set of minimum needed shares. This is an unusual thing to do but it is of overall
+importance to make sure that the secret can actually be reconstructed from the shares.
+Only if the reconstruction works it is secure to delete the secret."""
 def split_secret_and_check(secret, n_needed, k_total, p):
 	points = split_secret(secret, n_needed, k_total, p)
 	
@@ -131,8 +144,7 @@ def split_secret_and_check(secret, n_needed, k_total, p):
 		reconstructed = reconstruct_secret(subset, p)
 		if reconstructed != secret:
 			raise Exception("I could not reconstruct the secret from the"
-						+" shares. Trying again might solve the"
-						+" problem due to randomness")
+						+" shares. Please try again.")
 			quit()
 	return points
 
@@ -140,7 +152,7 @@ def find_smallest_possible_mersenne_exponent(secret_as_number):
 	for exp in mersenne_exponents:
 		if (2**exp)-1 > secret_as_number:
 			return exp
-	raise Exception("secret is too big")
+	raise Exception("secret is too big for me")
 
 if __name__ == "__main__":	
 	secret = raw_input("enter secret that is supposed to be shared\n")
