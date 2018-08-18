@@ -27,7 +27,7 @@ def generate_qr_codes(points, folder=None):
 		full_path = image_name
 		if (folder):
 			full_path=os.path.join(folder, full_path)
-		generate_qr_code(str(point), full_path)
+		generate_qr_code(str(point[0]) + ", " + str(point[1]) , full_path)
 		images.append(image_name)
 	return images
 
