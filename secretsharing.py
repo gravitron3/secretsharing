@@ -9,7 +9,7 @@ randgen = SystemRandom()
 
 
 
-mersenne_exponents = {127, 521, 607, 1279, 2203}
+mersenne_exponents = [127, 521, 607, 1279, 2203]
 
 
 
@@ -47,21 +47,17 @@ def polynomials_value_at(coefficients, x_value, p):
 
 def reconstruct_secret(points, p):
 	secret = 0
-	print "have these points:"
-	print points
-	print "entering loop"
 	for i in range(len(points)):
-		print"\t" + str(i)
+		
 		prod = 1
-		print "\t entering inner loop"
 		for j in range(len(points)):
-			print "\t\t" + str(j)
+			
 			if j != i:
 				prod = (prod * (0-points[j][0]) 
 					* inverse(points[i][0]-points[j][0], p)) % p
-			print "\t\tprod is now:" + str(prod)
+			
 		secret = (secret + points[i][1] * prod) % p
-		print "\t secret is now: " + str(secret)
+
 	if (secret >= p):
 		raise Exception("secret is bigger than the modulus")
 	return secret
@@ -97,7 +93,7 @@ def utf8_string(number_representation):
 	hexrepr = hexrepr[2:]
 	if hexrepr[len(hexrepr)-1] == "L":
 		hexrepr = hexrepr[:len(hexrepr)-1]
-	print hexrepr
+
 	return str(hexrepr).decode("hex").decode("utf-8")
 
 def get_all_subsets_of_size_n(n, main_set):
@@ -133,8 +129,6 @@ def split_secret_and_check(secret, n_needed, k_total, p):
 	all_subsets = get_all_subsets_of_size_n(n_needed, points)
 	for subset in all_subsets:
 		reconstructed = reconstruct_secret(subset, p)
-		print subset
-		print "checking... got " + str(reconstructed)
 		if reconstructed != secret:
 			raise Exception("I could not reconstruct the secret from the"
 						+" shares. Trying again might solve the"
@@ -150,29 +144,17 @@ def find_smallest_possible_mersenne_exponent(secret_as_number):
 
 if __name__ == "__main__":	
 	secret = raw_input("enter secret that is supposed to be shared\n")
-	print "secret: " + secret
-	print "number representation of secret: " + str(number_representation(secret))
 	e = find_smallest_possible_mersenne_exponent(number_representation(secret))
 	p = 2**e-1
-	print "will choose p = " + str(p)
 	n_needed = int( raw_input("enter number of shares needed to reconstruct the secret\n"))
 	k_total = int (raw_input("enter the total amount of shares\n") )
 
 	points = split_secret_and_check(number_representation(secret), n_needed, k_total, p)
-	print "secret will be split to 5 out of 10 shares..."
-	print "shares:"
-	print points
 	reconstructed = reconstruct_secret(points, p)
-	print "rec as number: " + str(reconstructed)
-	print "reconstructed secret: " + utf8_string(reconstructed)
 
-	images = []
-	for point in points:
-		image_name =  ""+str(point[0]) + ".png"
-		qrcodesecret.generate_qr_code(str(point), image_name)
-		images.append(image_name)
 
 	description = raw_input("enter description:\n")
-	qrcodesecret.generate_website(images, points, description, e)
+	qrcodesecret.generate_qr_codes(points)
+	qrcodesecret.generate_website(points, description, e)
 	qrcodesecret.generate_txt(points, "2**" + str(e) + "-1")
 	qrcodesecret.generate_multiple_txt(points, "2**" + str(e) + "-1")
